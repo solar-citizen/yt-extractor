@@ -1,0 +1,9 @@
+# config
+/config/timestamps.txt
+
+# videos
+video.mp4
+/segments
+
+# env variables
+.env

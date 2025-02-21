@@ -7,12 +7,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 YOUTUBE_URL = os.getenv("YOUTUBE_URL")
+if not YOUTUBE_URL:
+    raise RuntimeError("YOUTUBE_URL environment variable is not set")
 
-VIDEO_PATH = "video.mp4"
+FFMPEG_EXE_PATH = os.getenv("FFMPEG_EXE_PATH")
+if not FFMPEG_EXE_PATH:
+    raise RuntimeError("FFMPEG_EXE_PATH environment variable is not set")
+if not os.path.exists(FFMPEG_EXE_PATH):
+    raise RuntimeError(f"FFmpeg executable not found at {FFMPEG_EXE_PATH}")
+
+FFPROBE_EXE_PATH = os.getenv("FFPROBE_EXE_PATH")
+if not FFPROBE_EXE_PATH:
+    raise RuntimeError("FFPROBE_EXE_PATH environment variable is not set")
+if not os.path.exists(FFPROBE_EXE_PATH):
+    raise RuntimeError(f"FFprobe executable not found at {FFPROBE_EXE_PATH}")
+
+VIDEO_PATH = "video.webm" # toDo: use only name, format might differ
 CONFIG_PATH = os.path.join("config", "timestamps.txt")
-
-FFMPEG_EXE = r"C:\Program Files\FFMPEG\bin\ffmpeg.exe"
-FFPROBE_EXE = r"C:\Program Files\FFMPEG\bin\ffprobe.exe"
 
 def download_video(url, output):
     """
@@ -45,7 +56,7 @@ def download_video(url, output):
             print("Could not determine durations. Proceeding to download.")
     
     # Proceed to download the video
-    cmd = ["yt-dlp", "-q", "-o", output, url]
+    cmd = ["yt-dlp", "-o", output, url]
     print("Running command:", " ".join(cmd))
     subprocess.run(cmd, check=True)
     print(f"Downloaded video as {output}")
@@ -55,7 +66,7 @@ def get_video_duration(video_path):
     Use ffprobe to retrieve the total duration of the video in seconds.
     """
 
-    cmd = [FFPROBE_EXE, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
+    cmd = [FFPROBE_EXE_PATH, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     duration_str = result.stdout.strip()
     try:
@@ -89,8 +100,9 @@ def parse_config_file(config_path):
     """
 
     segments = []
+   
+    # toDo: remove regexp
     # Pattern: capture a timestamp, then the chapter title, a dash, and the author.
-    # Example: "00:00:00 Traversing the White Peak - Alexander Nakarada"
     pattern = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*?)\s*-\s*(.+)$")
     with open(config_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -145,13 +157,13 @@ def cut_segments(video_path, segments, output_dir="segments"):
         safe_label = "".join(c for c in label if c not in r'\/:*?"<>|')
         output_file = os.path.join(output_dir, f"{safe_label}.mp4")
         
-        cmd = [FFMPEG_EXE, "-y", "-i", video_path, "-ss", start, "-to", end, "-c", "copy", output_file]
+        cmd = [FFMPEG_EXE_PATH, "-y", "-i", video_path, "-ss", start, "-to", end, "-c", "copy", output_file]
         print(f"Cutting segment: {label} from {start} to {end}")
         subprocess.run(cmd, check=True)
         print(f"Segment saved as {output_file}")
 
 def main():
-    print("Step 1: Downloading video...")
+    print("\nStep 1: Downloading video...")
     download_video(YOUTUBE_URL, VIDEO_PATH)
 
     # Path to the configuration file with timestamps (e.g., config/timestamps.txt)

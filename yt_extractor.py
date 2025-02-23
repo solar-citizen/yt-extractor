@@ -29,9 +29,10 @@ if not EXTRACTION_FOLDER_PATH:
 if not os.path.exists(EXTRACTION_FOLDER_PATH):
     os.makedirs(EXTRACTION_FOLDER_PATH, exist_ok=True)
 
-
-VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "video.%(ext)s") # Set the video output template in the extraction folder.
-CONFIG_PATH = os.path.join("config", "timestamps.txt") # Config file remains in the config folder relative to this script.
+# Video will be downloaded into the extraction folder.
+# Using %(ext)s to let yt-dlp choose the correct extension.
+VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "video.%(ext)s")
+CONFIG_PATH = os.path.join("config", "timestamps.txt")
 
 def get_existing_video(video_template):
     """
@@ -63,7 +64,7 @@ def download_video(url, video_template):
     Download the video from YouTube using yt-dlp, but only if a local file
     doesn't exist or its duration doesn't match the online video's duration.
     """
-
+    
     existing_file = get_existing_video(video_template)
     if existing_file:
         local_duration = get_video_duration(existing_file)
@@ -114,35 +115,38 @@ def parse_config_file(config_path):
     Parse the config file containing chapter timestamps.
     
     Expected line format (one per chapter):
-      HH:MM:SS Chapter Title - Author
-
+      HH:MM:SS Some track name (with any format)
+    
+    The function removes the timestamp and keeps the remainder as the track's full name.
+    It also adds a numerical order to the label.
+    
     Returns a list of dictionaries with keys:
       "start": starting timestamp (as string),
-      "clip_name": chapter title,
-      "author": author,
-      "label": a combined label for naming the output file.
+      "numbered_label": a label with the track number and full name.
     """
     
     segments = []
-    pattern = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*?)\s*-\s*(.+)$")
+    # New pattern: capture timestamp and then the rest of the line.
+    pattern = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*)$")
     with open(config_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            m = pattern.match(line)
-            if m:
-                start_time = m.group(1)
-                clip_name = m.group(2)
-                author = m.group(3)
+            match = pattern.match(line)
+            if match:
+                timestamp = match.group(1)
+                full_name = match.group(2)
                 segments.append({
-                    "start": start_time,
-                    "clip_name": clip_name,
-                    "author": author,
-                    "label": f"{clip_name} - {author}"
+                    "start": timestamp,
+                    "full_name": full_name
                 })
             else:
                 print("Line didn't match expected format:", line)
+    
+    # Add numeration based on row order
+    for idx, seg in enumerate(segments, start=1):
+        seg["numbered_label"] = f"{idx}. {seg['full_name']}"
     return segments
 
 def cut_segments(video_path, segments, output_dir):
@@ -167,7 +171,7 @@ def cut_segments(video_path, segments, output_dir):
         start = seg["start"]
         end = segments[i + 1]["start"] if i < num_segments - 1 else total_duration_ts
         
-        label = seg["label"]
+        label = seg["numbered_label"]
         safe_label = "".join(c for c in label if c not in r'\/:*?"<>|')
         output_file = os.path.join(output_dir, f"{safe_label}.mp4")
         

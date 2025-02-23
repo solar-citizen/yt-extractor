@@ -2,6 +2,7 @@ import subprocess
 import re
 import os
 import json
+import glob
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,44 +23,26 @@ if not FFPROBE_EXE_PATH:
 if not os.path.exists(FFPROBE_EXE_PATH):
     raise RuntimeError(f"FFprobe executable not found at {FFPROBE_EXE_PATH}")
 
-VIDEO_PATH = "video.webm" # toDo: use only name, format might differ
-CONFIG_PATH = os.path.join("config", "timestamps.txt")
+EXTRACTION_FOLDER_PATH = os.getenv("EXTRACTION_FOLDER_PATH")
+if not EXTRACTION_FOLDER_PATH:
+    raise RuntimeError("EXTRACTION_FOLDER_PATH environment variable is not set")
+if not os.path.exists(EXTRACTION_FOLDER_PATH):
+    os.makedirs(EXTRACTION_FOLDER_PATH, exist_ok=True)
 
-def download_video(url, output):
+
+VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "video.%(ext)s") # Set the video output template in the extraction folder.
+CONFIG_PATH = os.path.join("config", "timestamps.txt") # Config file remains in the config folder relative to this script.
+
+def get_existing_video(video_template):
     """
-    Download the video from YouTube using yt-dlp, but only if a local file
-    doesn't exist or its duration doesn't match the online video's duration.
+    Search for an existing video file matching the template pattern.
     """
-    if os.path.exists(output):
-        local_duration = get_video_duration(output)
-        print(f"Local file '{output}' exists with duration: {local_duration} seconds.")
-        
-        # Get online video duration via yt-dlp (using JSON output)
-        try:
-            cmd = ["yt-dlp", "--skip-download", "--print-json", url]
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
-            info = json.loads(result.stdout)
-            online_duration = info.get("duration")
-            print(f"Online video duration: {online_duration} seconds.")
-        except Exception as e:
-            print("Error extracting online duration:", e)
-            online_duration = None
-        
-        # If both durations are available, compare them (allow 1 second tolerance)
-        if online_duration is not None and local_duration is not None:
-            if abs(local_duration - online_duration) < 1:
-                print("Local video file exists and duration matches. Skipping download.")
-                return
-            else:
-                print("Local video duration differs from online video. Redownloading...")
-        else:
-            print("Could not determine durations. Proceeding to download.")
-    
-    # Proceed to download the video
-    cmd = ["yt-dlp", "-o", output, url]
-    print("Running command:", " ".join(cmd))
-    subprocess.run(cmd, check=True)
-    print(f"Downloaded video as {output}")
+
+    pattern = video_template.replace("%(ext)s", "*")
+    files = glob.glob(pattern)
+    if files:
+        return files[0]
+    return None
 
 def get_video_duration(video_path):
     """
@@ -74,6 +57,47 @@ def get_video_duration(video_path):
     except ValueError:
         duration = None
     return duration
+
+def download_video(url, video_template):
+    """
+    Download the video from YouTube using yt-dlp, but only if a local file
+    doesn't exist or its duration doesn't match the online video's duration.
+    """
+
+    existing_file = get_existing_video(video_template)
+    if existing_file:
+        local_duration = get_video_duration(existing_file)
+        print(f"Local file '{existing_file}' exists with duration: {local_duration} seconds.")
+        
+        try:
+            cmd = ["yt-dlp", "--skip-download", "--print-json", url]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            info = json.loads(result.stdout)
+            online_duration = info.get("duration")
+            print(f"Online video duration: {online_duration} seconds.")
+        except Exception as e:
+            print("Error extracting online duration:", e)
+            online_duration = None
+        
+        if online_duration is not None and local_duration is not None:
+            if abs(local_duration - online_duration) < 1:
+                print("Local video file exists and duration matches. Skipping download.")
+                return existing_file
+            else:
+                print("Local video duration differs from online video. Redownloading...")
+        else:
+            print("Could not determine durations. Proceeding to download.")
+    
+    cmd = ["yt-dlp", "-o", video_template, url]
+    print("Running command:", " ".join(cmd))
+    subprocess.run(cmd, check=True)
+    
+    downloaded_file = get_existing_video(video_template)
+    if downloaded_file:
+        print(f"Downloaded video as {downloaded_file}")
+    else:
+        print("Download completed, but file not found using the template.")
+    return downloaded_file
 
 def seconds_to_timestamp(seconds):
     """
@@ -98,11 +122,8 @@ def parse_config_file(config_path):
       "author": author,
       "label": a combined label for naming the output file.
     """
-
+    
     segments = []
-   
-    # toDo: remove regexp
-    # Pattern: capture a timestamp, then the chapter title, a dash, and the author.
     pattern = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*?)\s*-\s*(.+)$")
     with open(config_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -124,7 +145,7 @@ def parse_config_file(config_path):
                 print("Line didn't match expected format:", line)
     return segments
 
-def cut_segments(video_path, segments, output_dir="segments"):
+def cut_segments(video_path, segments, output_dir):
     """
     Use FFmpeg to cut segments from the video.
     Each segment is defined by its start time and the start time of the next segment,
@@ -135,9 +156,7 @@ def cut_segments(video_path, segments, output_dir="segments"):
 
     os.makedirs(output_dir, exist_ok=True)
     
-    # Get total video duration
     total_duration = get_video_duration(video_path)
-    
     if total_duration is None:
         print("Could not retrieve video duration.")
         return
@@ -146,13 +165,8 @@ def cut_segments(video_path, segments, output_dir="segments"):
     num_segments = len(segments)
     for i, seg in enumerate(segments):
         start = seg["start"]
-        # Determine end time: next segment's start or video duration for the last segment.
-        if i < num_segments - 1:
-            end = segments[i + 1]["start"]
-        else:
-            end = total_duration_ts
+        end = segments[i + 1]["start"] if i < num_segments - 1 else total_duration_ts
         
-        # Sanitize output file name (remove forbidden characters)
         label = seg["label"]
         safe_label = "".join(c for c in label if c not in r'\/:*?"<>|')
         output_file = os.path.join(output_dir, f"{safe_label}.mp4")
@@ -164,26 +178,26 @@ def cut_segments(video_path, segments, output_dir="segments"):
 
 def main():
     print("\nStep 1: Downloading video...")
-    download_video(YOUTUBE_URL, VIDEO_PATH)
+    video_file = download_video(YOUTUBE_URL, VIDEO_PATH_TEMPLATE)
+    if not video_file:
+        print("Failed to download video.")
+        return
 
-    # Path to the configuration file with timestamps (e.g., config/timestamps.txt)
-    print("\nStep 2: Reading config file...")
-    
-    
     if not os.path.exists(CONFIG_PATH):
         print(f"Config file not found at {CONFIG_PATH}.")
         return
 
-    print("\nStep 3: Parsing config file...")
+    print("\nStep 2: Parsing config file...")
     segments = parse_config_file(CONFIG_PATH)
-
     if not segments:
         print("No valid timestamps found in config file. Exiting.")
         return
     print(f"Parsed {len(segments)} segments from config file.")
 
-    print("\nStep 4: Cutting video on segments...")
-    cut_segments(VIDEO_PATH, segments)
+    # Create segments folder inside the extraction folder
+    segments_folder = os.path.join(EXTRACTION_FOLDER_PATH, "segments")
+    print("\nStep 3: Cutting video into segments...")
+    cut_segments(video_file, segments, segments_folder)
 
 if __name__ == "__main__":
     main()

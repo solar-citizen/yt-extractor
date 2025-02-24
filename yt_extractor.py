@@ -40,7 +40,11 @@ def get_video_title(url):
     """
     Return the video's title using yt-dlp.
     """
-    cmd = ["yt-dlp", "--get-title", url]
+    cmd = [
+        "yt-dlp",           # Calls the yt-dlp tool.
+        "--get-title",      # Instructs yt-dlp to fetch only the video's title.
+        url                 # The URL of the YouTube video.
+    ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
     title = result.stdout.strip()
     return title
@@ -64,8 +68,13 @@ def get_video_duration(video_path):
     """
     Use ffprobe to retrieve the total duration of the video in seconds.
     """
-    cmd = [FFPROBE_EXE_PATH, "-v", "error", "-show_entries", "format=duration",
-           "-of", "default=noprint_wrappers=1:nokey=1", video_path]
+    cmd = [
+        FFPROBE_EXE_PATH,                               # Path to the FFprobe executable.
+        "-v", "error",                                  # Set log level to 'error' to suppress unnecessary output.
+        "-show_entries", "format=duration",             # Retrieve only the duration information from the format section.
+        "-of", "default=noprint_wrappers=1:nokey=1",    # Output format: plain text without keys or wrappers.
+        video_path                                      # The input video file to analyze.
+    ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     duration_str = result.stdout.strip()
     try:
@@ -84,7 +93,12 @@ def download_video(url, video_template):
         local_duration = get_video_duration(existing_file)
         print(f"Local file '{existing_file}' exists with duration: {local_duration} seconds.")
         try:
-            cmd = ["yt-dlp", "--skip-download", "--print-json", url]
+            cmd = [
+                "yt-dlp",           # Calls the yt-dlp tool.
+                "--skip-download",  # Tells yt-dlp not to download the video data.
+                "--print-json",     # Instructs yt-dlp to output the video's metadata in JSON format.
+                url                 # The URL of the YouTube video.
+            ]
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
             info = json.loads(result.stdout)
             online_duration = info.get("duration")
@@ -100,7 +114,11 @@ def download_video(url, video_template):
                 print("Local video duration differs from online video. Redownloading...")
         else:
             print("Could not determine durations. Proceeding to download.")
-    cmd = ["yt-dlp", "-o", video_template, url]
+    cmd = [
+        "yt-dlp",                   # Calls the yt-dlp tool to download the video.
+        "-o", video_template,       # Specifies the output template for the downloaded file (which can include placeholders like %(title)s and %(ext)s).
+        url                         # The URL of the YouTube video to download.
+    ]
     print("Running command:", " ".join(cmd))
     subprocess.run(cmd, check=True)
     downloaded_file = get_existing_video(video_template, url)
@@ -177,17 +195,26 @@ def cut_segments(video_path, segments, output_dir):
         if IS_AUDIO_ONLY:
             output_file = os.path.join(output_dir, f"{safe_label}.m4a")
             cmd = [
-                FFMPEG_EXE_PATH, "-y", "-i", video_path,
-                "-ss", start, "-to", end,
-                "-vn", "-c:a", "aac", "-b:a", "192k",
-                output_file
+                FFMPEG_EXE_PATH,    # The path to the FFmpeg executable. This tells your system which program to run.
+                "-y",               # Overwrite output files without prompting. If a file with the same name already exists, it will be replaced.
+                "-i", video_path,   # Specifies the input file. 'video_path' is the path to the video you want to process.
+                "-ss", start,       # Sets the start time for processing (seek position). 'start' is a timestamp (e.g., "00:04:02") indicating where to begin the extraction.
+                "-to", end,         # Sets the end time for processing. 'end' is a timestamp (e.g., "00:08:20") indicating where to stop the extraction.
+                "-vn",              # Disables video recording. This tells FFmpeg to ignore the video stream, so only the audio is processed.
+                "-c:a", "aac",      # Specifies the audio codec to use. Here, "aac" means FFmpeg will encode the audio using the Advanced Audio Coding codec.
+                "-b:a", "192k",     # Sets the audio bitrate to 192 kilobits per second. This determines the quality (and file size) of the output audio.
+                output_file         # The output file path where the processed (extracted) audio will be saved.
             ]
         else:
             output_file = os.path.join(output_dir, f"{safe_label}.mp4")
             cmd = [
-                FFMPEG_EXE_PATH, "-y", "-i", video_path,
-                "-ss", start, "-to", end,
-                "-c", "copy", output_file
+                FFMPEG_EXE_PATH,    # Path to the FFmpeg executable.
+                "-y",               # Overwrite output files without prompting.
+                "-i", video_path,   # Specify the input video file.
+                "-ss", start,       # Set the start time for the extraction.
+                "-to", end,         # Set the end time for the extraction.
+                "-c", "copy",       # Copy the streams (both video and audio) without re-encoding.
+                output_file         # The path where the extracted segment will be saved.
             ]
         print(f"Cutting segment: {label} from {start} to {end}")
         subprocess.run(cmd, check=True)
@@ -202,9 +229,13 @@ def extract_full_audio(video_path, output_dir):
     safe_title = "".join(c for c in title if c not in r'\/:*?"<>|')
     output_file = os.path.join(output_dir, f"{safe_title}.m4a")
     cmd = [
-        FFMPEG_EXE_PATH, "-y", "-i", video_path,
-        "-vn", "-c:a", "aac", "-b:a", "192k",
-        output_file
+        FFMPEG_EXE_PATH,    # Path to the FFmpeg executable.
+        "-y",               # Overwrite output files without prompting.
+        "-i", video_path,   # Specify the input video file.
+        "-vn",              # Disables video recording. This tells FFmpeg to ignore the video stream, so only the audio is processed.
+        "-c:a", "aac",      # Specifies the audio codec to use. Here, "aac" means FFmpeg will encode the audio using the Advanced Audio Coding codec.
+        "-b:a", "192k",     # Sets the audio bitrate to 192 kilobits per second. This determines the quality (and file size) of the output audio.
+        output_file         # The output file path where the processed (extracted) audio will be saved.
     ]
     print(f"Extracting full audio from video to {output_file}")
     subprocess.run(cmd, check=True)

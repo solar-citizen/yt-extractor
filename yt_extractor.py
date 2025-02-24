@@ -33,11 +33,13 @@ if not os.path.exists(EXTRACTION_FOLDER_PATH):
 VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "%(title)s.%(ext)s")
 CONFIG_PATH = os.path.join("config", "timestamps.txt")
 
+# Global flag: when True, only extract audio.
+IS_AUDIO_ONLY = True
+
 def get_video_title(url):
     """
     Return the video's title using yt-dlp.
     """
-    
     cmd = ["yt-dlp", "--get-title", url]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
     title = result.stdout.strip()
@@ -49,13 +51,9 @@ def get_existing_video(video_template, url):
     substituting the actual title from the URL. The %(ext)s placeholder
     is replaced with a wildcard.
     """
-    
     title = get_video_title(url)
-
-    # Escape special characters in the title for glob
+    # Escape special characters in the title for glob matching
     safe_title = glob.escape(title)
-
-    # Build the pattern by replacing %(title)s with safe_title and %(ext)s with a wildcard
     pattern = video_template.replace("%(title)s", safe_title).replace("%(ext)s", "*")
     files = glob.glob(pattern)
     if files:
@@ -66,7 +64,8 @@ def get_video_duration(video_path):
     """
     Use ffprobe to retrieve the total duration of the video in seconds.
     """
-    cmd = [FFPROBE_EXE_PATH, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
+    cmd = [FFPROBE_EXE_PATH, "-v", "error", "-show_entries", "format=duration",
+           "-of", "default=noprint_wrappers=1:nokey=1", video_path]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     duration_str = result.stdout.strip()
     try:
@@ -80,7 +79,6 @@ def download_video(url, video_template):
     Download the video from YouTube using yt-dlp, but only if a local file
     doesn't exist or its duration doesn't match the online video's duration.
     """
-    
     existing_file = get_existing_video(video_template, url)
     if existing_file:
         local_duration = get_video_duration(existing_file)
@@ -120,7 +118,6 @@ def seconds_to_timestamp(seconds):
     """
     Convert a float number of seconds to a timestamp string in HH:MM:SS.mmm format.
     """
-
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = seconds % 60
@@ -140,9 +137,7 @@ def parse_config_file(config_path):
       "start": starting timestamp (as string),
       "numbered_label": a label with the track number and full name.
     """
-    
     segments = []
-    # New pattern: capture timestamp and then the rest of the line.
     pattern = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*)$")
     with open(config_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -171,9 +166,12 @@ def cut_segments(video_path, segments, output_dir):
     Each segment is defined by its start time and the start time of the next segment,
     with the final segment running to the end of the video.
     
+    If IS_AUDIO_ONLY is True, only the audio is extracted (re-encoded to AAC)
+    and saved with a .m4a extension.
+    Otherwise, the full video is copied and saved as .mp4.
+    
     Output files are stored in the specified output directory.
     """
-
     os.makedirs(output_dir, exist_ok=True)
     
     total_duration = get_video_duration(video_path)
@@ -189,12 +187,42 @@ def cut_segments(video_path, segments, output_dir):
         
         label = seg["numbered_label"]
         safe_label = "".join(c for c in label if c not in r'\/:*?"<>|')
-        output_file = os.path.join(output_dir, f"{safe_label}.mp4")
+        if IS_AUDIO_ONLY:
+            output_file = os.path.join(output_dir, f"{safe_label}.m4a")
+            cmd = [
+                FFMPEG_EXE_PATH, "-y", "-i", video_path,
+                "-ss", start, "-to", end,
+                "-vn", "-c:a", "aac", "-b:a", "192k",
+                output_file
+            ]
+        else:
+            output_file = os.path.join(output_dir, f"{safe_label}.mp4")
+            cmd = [
+                FFMPEG_EXE_PATH, "-y", "-i", video_path,
+                "-ss", start, "-to", end,
+                "-c", "copy", output_file
+            ]
         
-        cmd = [FFMPEG_EXE_PATH, "-y", "-i", video_path, "-ss", start, "-to", end, "-c", "copy", output_file]
         print(f"Cutting segment: {label} from {start} to {end}")
         subprocess.run(cmd, check=True)
         print(f"Segment saved as {output_file}")
+
+def extract_full_audio(video_path):
+    """
+    Extract the full audio from the entire video, re-encoded to AAC, and save as a single file.
+    """
+    title = get_video_title(YOUTUBE_URL)
+    safe_title = "".join(c for c in title if c not in r'\/:*?"<>|')
+    output_file = os.path.join(EXTRACTION_FOLDER_PATH, f"{safe_title}.m4a")
+    cmd = [
+        FFMPEG_EXE_PATH, "-y", "-i", video_path,
+        "-vn", "-c:a", "aac", "-b:a", "192k",
+        output_file
+    ]
+    print(f"Extracting full audio from video to {output_file}")
+    subprocess.run(cmd, check=True)
+    print(f"Full audio saved as {output_file}")
+    return output_file
 
 def main():
     print("\nStep 1: Downloading video...")
@@ -203,15 +231,23 @@ def main():
         print("Failed to download video.")
         return
 
-    # Parse config file if it exists
+    # Check if config exists; if not, skip segmentation.
     if not os.path.exists(CONFIG_PATH):
         print(f"Config file not found at {CONFIG_PATH}. No segments will be cut.")
+        # If audio-only is desired, extract full audio.
+        if IS_AUDIO_ONLY:
+            extract_full_audio(video_file)
         return
 
     print("\nStep 2: Parsing config file...")
     segments = parse_config_file(CONFIG_PATH)
     if not segments:
-        print("No valid timestamps found in config file. Skipping segmentation. Video will remain as downloaded.")
+        print("No valid timestamps found in config file.")
+        if IS_AUDIO_ONLY:
+            print("Config is empty. Extracting full audio from video...")
+            extract_full_audio(video_file)
+        else:
+            print("Skipping segmentation. Video will remain as downloaded.")
         return
     print(f"Parsed {len(segments)} segments from config file.")
 

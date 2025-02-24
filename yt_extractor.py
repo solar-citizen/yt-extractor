@@ -29,17 +29,34 @@ if not EXTRACTION_FOLDER_PATH:
 if not os.path.exists(EXTRACTION_FOLDER_PATH):
     os.makedirs(EXTRACTION_FOLDER_PATH, exist_ok=True)
 
-# Video will be downloaded into the extraction folder.
-# Using %(ext)s to let yt-dlp choose the correct extension.
-VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "video.%(ext)s")
+# Use YouTube title in the file name by setting the output template accordingly.
+VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "%(title)s.%(ext)s")
 CONFIG_PATH = os.path.join("config", "timestamps.txt")
 
-def get_existing_video(video_template):
+def get_video_title(url):
     """
-    Search for an existing video file matching the template pattern.
+    Return the video's title using yt-dlp.
     """
+    
+    cmd = ["yt-dlp", "--get-title", url]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+    title = result.stdout.strip()
+    return title
 
-    pattern = video_template.replace("%(ext)s", "*")
+def get_existing_video(video_template, url):
+    """
+    Search for an existing video file matching the template pattern,
+    substituting the actual title from the URL. The %(ext)s placeholder
+    is replaced with a wildcard.
+    """
+    
+    title = get_video_title(url)
+
+    # Escape special characters in the title for glob
+    safe_title = glob.escape(title)
+
+    # Build the pattern by replacing %(title)s with safe_title and %(ext)s with a wildcard
+    pattern = video_template.replace("%(title)s", safe_title).replace("%(ext)s", "*")
     files = glob.glob(pattern)
     if files:
         return files[0]
@@ -49,7 +66,6 @@ def get_video_duration(video_path):
     """
     Use ffprobe to retrieve the total duration of the video in seconds.
     """
-
     cmd = [FFPROBE_EXE_PATH, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     duration_str = result.stdout.strip()
@@ -65,7 +81,7 @@ def download_video(url, video_template):
     doesn't exist or its duration doesn't match the online video's duration.
     """
     
-    existing_file = get_existing_video(video_template)
+    existing_file = get_existing_video(video_template, url)
     if existing_file:
         local_duration = get_video_duration(existing_file)
         print(f"Local file '{existing_file}' exists with duration: {local_duration} seconds.")
@@ -93,7 +109,7 @@ def download_video(url, video_template):
     print("Running command:", " ".join(cmd))
     subprocess.run(cmd, check=True)
     
-    downloaded_file = get_existing_video(video_template)
+    downloaded_file = get_existing_video(video_template, url)
     if downloaded_file:
         print(f"Downloaded video as {downloaded_file}")
     else:
@@ -115,9 +131,9 @@ def parse_config_file(config_path):
     Parse the config file containing chapter timestamps.
     
     Expected line format (one per chapter):
-      HH:MM:SS Some track name (with any format)
+      HH:MM:SS Some track name (with any content)
     
-    The function removes the timestamp and keeps the remainder as the track's full name.
+    The function removes the leading timestamp and uses the remainder of the line as the track's full name.
     It also adds a numerical order to the label.
     
     Returns a list of dictionaries with keys:
@@ -187,14 +203,15 @@ def main():
         print("Failed to download video.")
         return
 
+    # Parse config file if it exists
     if not os.path.exists(CONFIG_PATH):
-        print(f"Config file not found at {CONFIG_PATH}.")
+        print(f"Config file not found at {CONFIG_PATH}. No segments will be cut.")
         return
 
     print("\nStep 2: Parsing config file...")
     segments = parse_config_file(CONFIG_PATH)
     if not segments:
-        print("No valid timestamps found in config file. Exiting.")
+        print("No valid timestamps found in config file. Skipping segmentation. Video will remain as downloaded.")
         return
     print(f"Parsed {len(segments)} segments from config file.")
 

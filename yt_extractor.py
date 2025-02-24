@@ -83,7 +83,6 @@ def download_video(url, video_template):
     if existing_file:
         local_duration = get_video_duration(existing_file)
         print(f"Local file '{existing_file}' exists with duration: {local_duration} seconds.")
-        
         try:
             cmd = ["yt-dlp", "--skip-download", "--print-json", url]
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
@@ -93,7 +92,6 @@ def download_video(url, video_template):
         except Exception as e:
             print("Error extracting online duration:", e)
             online_duration = None
-        
         if online_duration is not None and local_duration is not None:
             if abs(local_duration - online_duration) < 1:
                 print("Local video file exists and duration matches. Skipping download.")
@@ -102,11 +100,9 @@ def download_video(url, video_template):
                 print("Local video duration differs from online video. Redownloading...")
         else:
             print("Could not determine durations. Proceeding to download.")
-    
     cmd = ["yt-dlp", "-o", video_template, url]
     print("Running command:", " ".join(cmd))
     subprocess.run(cmd, check=True)
-    
     downloaded_file = get_existing_video(video_template, url)
     if downloaded_file:
         print(f"Downloaded video as {downloaded_file}")
@@ -127,15 +123,14 @@ def parse_config_file(config_path):
     """
     Parse the config file containing chapter timestamps.
     
-    Expected line format (one per chapter):
+    Expected format (one per chapter):
       HH:MM:SS Some track name (with any content)
     
-    The function removes the leading timestamp and uses the remainder of the line as the track's full name.
-    It also adds a numerical order to the label.
-    
+    The function removes the leading timestamp and uses the remainder of the line as the track's full name,
+    adding a numerical order to the label.
     Returns a list of dictionaries with keys:
       "start": starting timestamp (as string),
-      "numbered_label": a label with the track number and full name.
+      "numbered_label": label with track number and full name.
     """
     segments = []
     pattern = re.compile(r"^(\d{2}:\d{2}:\d{2})\s+(.*)$")
@@ -154,8 +149,6 @@ def parse_config_file(config_path):
                 })
             else:
                 print("Line didn't match expected format:", line)
-    
-    # Add numeration based on row order
     for idx, seg in enumerate(segments, start=1):
         seg["numbered_label"] = f"{idx}. {seg['full_name']}"
     return segments
@@ -165,26 +158,20 @@ def cut_segments(video_path, segments, output_dir):
     Use FFmpeg to cut segments from the video.
     Each segment is defined by its start time and the start time of the next segment,
     with the final segment running to the end of the video.
-    
-    If IS_AUDIO_ONLY is True, only the audio is extracted (re-encoded to AAC)
-    and saved with a .m4a extension.
-    Otherwise, the full video is copied and saved as .mp4.
-    
-    Output files are stored in the specified output directory.
+    If IS_AUDIO_ONLY is True, extract only audio (re-encoded to AAC) and save as .m4a;
+    otherwise, copy the full video and save as .mp4.
+    Segments are stored in the specified output directory.
     """
     os.makedirs(output_dir, exist_ok=True)
-    
     total_duration = get_video_duration(video_path)
     if total_duration is None:
         print("Could not retrieve video duration.")
         return
     total_duration_ts = seconds_to_timestamp(total_duration)
-    
     num_segments = len(segments)
     for i, seg in enumerate(segments):
         start = seg["start"]
         end = segments[i + 1]["start"] if i < num_segments - 1 else total_duration_ts
-        
         label = seg["numbered_label"]
         safe_label = "".join(c for c in label if c not in r'\/:*?"<>|')
         if IS_AUDIO_ONLY:
@@ -202,18 +189,18 @@ def cut_segments(video_path, segments, output_dir):
                 "-ss", start, "-to", end,
                 "-c", "copy", output_file
             ]
-        
         print(f"Cutting segment: {label} from {start} to {end}")
         subprocess.run(cmd, check=True)
         print(f"Segment saved as {output_file}")
 
-def extract_full_audio(video_path):
+def extract_full_audio(video_path, output_dir):
     """
-    Extract the full audio from the entire video, re-encoded to AAC, and save as a single file.
+    Extract full audio from the entire video, re-encoded to AAC, and save as a single file.
+    The output is saved in output_dir.
     """
     title = get_video_title(YOUTUBE_URL)
     safe_title = "".join(c for c in title if c not in r'\/:*?"<>|')
-    output_file = os.path.join(EXTRACTION_FOLDER_PATH, f"{safe_title}.m4a")
+    output_file = os.path.join(output_dir, f"{safe_title}.m4a")
     cmd = [
         FFMPEG_EXE_PATH, "-y", "-i", video_path,
         "-vn", "-c:a", "aac", "-b:a", "192k",
@@ -231,30 +218,37 @@ def main():
         print("Failed to download video.")
         return
 
-    # Check if config exists; if not, skip segmentation.
+    # Always create the base segments folder
+    base_segments_folder = os.path.join(EXTRACTION_FOLDER_PATH, "segments")
+    os.makedirs(base_segments_folder, exist_ok=True)
+
+    # Check for config file
     if not os.path.exists(CONFIG_PATH):
         print(f"Config file not found at {CONFIG_PATH}. No segments will be cut.")
-        # If audio-only is desired, extract full audio.
         if IS_AUDIO_ONLY:
-            extract_full_audio(video_file)
+            # Save full audio into the base segments folder (no dedicated subfolder)
+            extract_full_audio(video_file, output_dir=base_segments_folder)
         return
 
-    print("\nStep 2: Parsing config file...")
     segments = parse_config_file(CONFIG_PATH)
     if not segments:
         print("No valid timestamps found in config file.")
         if IS_AUDIO_ONLY:
             print("Config is empty. Extracting full audio from video...")
-            extract_full_audio(video_file)
+            extract_full_audio(video_file, output_dir=base_segments_folder)
         else:
             print("Skipping segmentation. Video will remain as downloaded.")
         return
-    print(f"Parsed {len(segments)} segments from config file.")
 
-    # Create segments folder inside the extraction folder
-    segments_folder = os.path.join(EXTRACTION_FOLDER_PATH, "segments")
-    print("\nStep 3: Cutting video into segments...")
-    cut_segments(video_file, segments, segments_folder)
+    print(f"Parsed {len(segments)} segments from config file.")
+    # Create a dedicated folder for this video's segments based on its title.
+    title = get_video_title(YOUTUBE_URL)
+    safe_title = "".join(c for c in title if c not in r'\/:*?"<>|')
+    video_segments_folder = os.path.join(base_segments_folder, safe_title)
+    os.makedirs(video_segments_folder, exist_ok=True)
+    
+    print("\nStep 2: Cutting video into segments...")
+    cut_segments(video_file, segments, video_segments_folder)
 
 if __name__ == "__main__":
     main()

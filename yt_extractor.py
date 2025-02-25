@@ -34,7 +34,7 @@ VIDEO_PATH_TEMPLATE = os.path.join(EXTRACTION_FOLDER_PATH, "%(title)s.%(ext)s")
 CONFIG_PATH = os.path.join("config", "timestamps.txt")
 
 # Global flag: when True, only extract audio.
-IS_AUDIO_ONLY = True
+IS_AUDIO_ONLY_EXTRACTION = True
 
 def get_video_title(url):
     """
@@ -176,7 +176,7 @@ def cut_segments(video_path, segments, output_dir):
     Use FFmpeg to cut segments from the video.
     Each segment is defined by its start time and the start time of the next segment,
     with the final segment running to the end of the video.
-    If IS_AUDIO_ONLY is True, extract only audio (re-encoded to AAC) and save as .m4a;
+    If IS_AUDIO_ONLY_EXTRACTION is True, extract only audio (re-encoded to AAC) and save as .m4a;
     otherwise, copy the full video and save as .mp4.
     Segments are stored in the specified output directory.
     """
@@ -192,7 +192,7 @@ def cut_segments(video_path, segments, output_dir):
         end = segments[i + 1]["start"] if i < num_segments - 1 else total_duration_ts
         label = seg["numbered_label"]
         safe_label = "".join(c for c in label if c not in r'\/:*?"<>|')
-        if IS_AUDIO_ONLY:
+        if IS_AUDIO_ONLY_EXTRACTION:
             output_file = os.path.join(output_dir, f"{safe_label}.m4a")
             cmd = [
                 FFMPEG_EXE_PATH,    # The path to the FFmpeg executable. This tells your system which program to run.
@@ -256,7 +256,7 @@ def main():
     # Check for config file
     if not os.path.exists(CONFIG_PATH):
         print(f"Config file not found at {CONFIG_PATH}. No segments will be cut.")
-        if IS_AUDIO_ONLY:
+        if IS_AUDIO_ONLY_EXTRACTION:
             # Save full audio into the base segments folder (no dedicated subfolder)
             extract_full_audio(video_file, output_dir=base_segments_folder)
         return
@@ -264,7 +264,7 @@ def main():
     segments = parse_config_file(CONFIG_PATH)
     if not segments:
         print("No valid timestamps found in config file.")
-        if IS_AUDIO_ONLY:
+        if IS_AUDIO_ONLY_EXTRACTION:
             print("Config is empty. Extracting full audio from video...")
             extract_full_audio(video_file, output_dir=base_segments_folder)
         else:

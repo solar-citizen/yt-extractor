@@ -202,7 +202,7 @@ def cut_segments(video_path, segments, output_dir):
                 "-to", end,         # Sets the end time for processing. 'end' is a timestamp (e.g., "00:08:20") indicating where to stop the extraction.
                 "-vn",              # Disables video recording. This tells FFmpeg to ignore the video stream, so only the audio is processed.
                 "-c:a", "aac",      # Specifies the audio codec to use. Here, "aac" means FFmpeg will encode the audio using the Advanced Audio Coding codec.
-                "-b:a", "192k",     # Sets the audio bitrate to 192 kilobits per second. This determines the quality (and file size) of the output audio.
+                "-b:a", "256k",     # Sets the audio bitrate to 256 kilobits per second. This determines the quality (and file size) of the output audio.
                 output_file         # The output file path where the processed (extracted) audio will be saved.
             ]
         else:
@@ -234,7 +234,7 @@ def extract_full_audio(video_path, output_dir):
         "-i", video_path,   # Specify the input video file.
         "-vn",              # Disables video recording. This tells FFmpeg to ignore the video stream, so only the audio is processed.
         "-c:a", "aac",      # Specifies the audio codec to use. Here, "aac" means FFmpeg will encode the audio using the Advanced Audio Coding codec.
-        "-b:a", "192k",     # Sets the audio bitrate to 192 kilobits per second. This determines the quality (and file size) of the output audio.
+        "-b:a", "256k",     # Sets the audio bitrate to 256 kilobits per second. This determines the quality (and file size) of the output audio.
         output_file         # The output file path where the processed (extracted) audio will be saved.
     ]
     print(f"Extracting full audio from video to {output_file}")

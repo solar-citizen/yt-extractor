@@ -19,11 +19,11 @@ yt-dlp --version
 ## 3. Install FFMPEG
 
 ```bash
-# visit and download package
-https://ffmpeg.org/download.html
+# run in terminal:
+winget install ffmpeg
 ```
 
-### Install FFMPEG package
+Restart terminal
 
 ### Verify installation
 
@@ -32,19 +32,33 @@ https://ffmpeg.org/download.html
 ffmpeg
 ```
 
-## 4. Set environment variables:
+## 4. Install python tools
+
+```bash
+# run in terminal:
+pip install dotenv
+pip install pytz
+```
+
+## 5. Set environment variables:
 
 Check .example.env
 
 ```bash
 YOUTUBE_URL="video you want to download"
-FFMPEG_EXE_PATH="path to ffmpeg.exe (typically in /FFMPEG/bin/ffmpeg.exe)"
-FFPROBE_EXE_PATH="path to ffprobe.exe (typically in /FFMPEG/bin/ffprobe.exe)"
 EXTRACTION_FOLDER_PATH="path where you want to export everything"
 ```
 
-## 5. Add timestamps.txt in config folder (copy example.timestamps.txt)
+## 6. Add timestamps.txt in config folder (copy example.timestamps.txt)
 
 Fill it with timestamps, if required
+
+## 7. Optional - add code formatter
+
+```bash
+pip install black
+```
+
+Install VSCode extension "Black Formatter"
 
 # Run program

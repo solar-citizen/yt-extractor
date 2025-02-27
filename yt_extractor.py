@@ -21,20 +21,6 @@ if not PY_TZ:
     raise RuntimeError("PY_TZ environment variable is not set")
 
 
-FFMPEG_EXE_PATH = os.getenv("FFMPEG_EXE_PATH")
-if not FFMPEG_EXE_PATH:
-    raise RuntimeError("FFMPEG_EXE_PATH environment variable is not set")
-if not os.path.exists(FFMPEG_EXE_PATH):
-    raise RuntimeError(f"FFmpeg executable not found at {FFMPEG_EXE_PATH}")
-
-
-FFPROBE_EXE_PATH = os.getenv("FFPROBE_EXE_PATH")
-if not FFPROBE_EXE_PATH:
-    raise RuntimeError("FFPROBE_EXE_PATH environment variable is not set")
-if not os.path.exists(FFPROBE_EXE_PATH):
-    raise RuntimeError(f"FFprobe executable not found at {FFPROBE_EXE_PATH}")
-
-
 EXTRACTION_FOLDER_PATH = os.getenv("EXTRACTION_FOLDER_PATH")
 if not EXTRACTION_FOLDER_PATH:
     raise RuntimeError("EXTRACTION_FOLDER_PATH environment variable is not set")
@@ -50,6 +36,9 @@ METADATA_PATH = os.path.join("config", "video_metadatas.json")
 
 IS_AUDIO_ONLY_EXTRACTION = True
 TIME_ZONE = PY_TZ if PY_TZ else "GMT+0"
+
+FFMPEG = "ffmpeg"
+FFPROBE = "ffprobe"
 
 
 def sanitize_filename(filename):
@@ -172,7 +161,7 @@ def get_video_duration(video_path):
     Use ffprobe to retrieve the total duration of the video in seconds.
     """
     cmd = [
-        FFPROBE_EXE_PATH,  # Path to the FFprobe executable.
+        FFPROBE,  # Path to the FFprobe executable.
         "-v",
         "error",  # Set log level to 'error' to suppress unnecessary output.
         "-show_entries",
@@ -421,7 +410,7 @@ def cut_segments(video_path, segments, output_dir):
         if IS_AUDIO_ONLY_EXTRACTION:
             output_file = os.path.join(output_dir, f"{safe_label}.m4a")
             cmd = [
-                FFMPEG_EXE_PATH,  # The path to the FFmpeg executable.
+                FFMPEG,  # The path to the FFmpeg executable.
                 "-y",  # Overwrite output files without prompting.
                 "-i",
                 video_path,  # Specifies the input file.
@@ -439,7 +428,7 @@ def cut_segments(video_path, segments, output_dir):
         else:
             output_file = os.path.join(output_dir, f"{safe_label}.mp4")
             cmd = [
-                FFMPEG_EXE_PATH,  # Path to the FFmpeg executable.
+                FFMPEG,  # Path to the FFmpeg executable.
                 "-y",  # Overwrite output files without prompting.
                 "-i",
                 video_path,  # Specify the input video file.
@@ -485,7 +474,7 @@ def extract_full_audio(video_path, output_dir):
     safe_title = sanitize_filename(title)
     output_file = os.path.join(output_dir, f"{safe_title}.m4a")
     cmd = [
-        FFMPEG_EXE_PATH,  # Path to the FFmpeg executable.
+        FFMPEG,  # Path to the FFmpeg executable.
         "-y",  # Overwrite output files without prompting.
         "-i",
         video_path,  # Specify the input video file.

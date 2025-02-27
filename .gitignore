@@ -1,5 +1,6 @@
 # config
 /config/timestamps.txt
+/config/video_metadatas.json
 
 # videos
 video.mp4

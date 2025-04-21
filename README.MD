@@ -20,7 +20,16 @@ yt-dlp --version
 
 ```bash
 # run in terminal:
+
+## Windows:
 winget install ffmpeg
+
+## Ubuntu:
+sudo apt update
+sudo apt install ffmpeg
+
+## MacOS (with Homebrew)
+brew install ffmpeg
 ```
 
 Restart terminal
@@ -37,7 +46,6 @@ ffmpeg
 ```bash
 # run in terminal:
 pip install dotenv
-pip install pytz
 ```
 
 ## 5. Set environment variables:
@@ -46,7 +54,6 @@ Check .example.env
 
 ```bash
 EXTRACTION_FOLDER_PATH="path where you want to export everything"
-PY_TZ=your_iana_timezone
 ```
 
 ## 6. Add urls.txt in config_data folder or copy example.urls.txt

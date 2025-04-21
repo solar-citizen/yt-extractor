@@ -1,5 +1,4 @@
 from datetime import datetime
-import pytz
 
 
 class VideoSegment:
@@ -24,7 +23,7 @@ class Video:
     def add_segment(self, segment):
         self.segments.append(segment)
 
-    def to_metadata_dict(self, time_zone):
+    def to_metadata_dict(self):
         """Convert video object to metadata dictionary format"""
         return {
             "yt_id": self.id,
@@ -33,7 +32,7 @@ class Video:
             "yt_link": self.url,
             "yt_duration": self.duration,
             "segments": len(self.segments),
-            "insert_date": datetime.now(pytz.timezone(time_zone)).isoformat(),
+            "insert_date": datetime.now().astimezone().isoformat(),
         }
 
     @property

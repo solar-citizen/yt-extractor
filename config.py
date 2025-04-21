@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 
 
 class Config:
@@ -9,8 +10,6 @@ class Config:
         load_dotenv()
 
         # Required environment variables
-        # self.youtube_url = self._get_required_env("YOUTUBE_URL")
-        self.timezone = self._get_required_env("PY_TZ")
         self.extraction_folder_path = self._get_required_env("EXTRACTION_FOLDER_PATH")
 
         # Create extraction folder if it doesn't exist

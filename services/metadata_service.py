@@ -45,7 +45,7 @@ class MetadataService:
                 next_id = int(key) + 1
 
         # Add new video entry with sequential ID
-        metadata[str(next_id)] = video.to_metadata_dict(self.config.timezone)
+        metadata[str(next_id)] = video.to_metadata_dict()
 
         self.save_metadata(metadata)
         print(f"Updated metadata for video {video.id}: {video.title} (ID: {next_id})")

@@ -89,7 +89,7 @@ class FFmpegService:
                     output_file,
                 ]
 
-            print(f"Cutting segment: {segment.numbered_label} from {start} to {end}")
+            print(f"\nCutting segment: {segment.numbered_label} from {start} to {end}")
             print(f"Output file: {output_file}")
 
             SystemUtils.run_subprocess(cmd, show_progress=True)
@@ -116,7 +116,7 @@ class FFmpegService:
             output_file,
         ]
 
-        print(f"Extracting full audio from video to {output_file}")
+        print(f"Extracting to {output_file}")
         SystemUtils.run_subprocess(cmd, show_progress=True)
         print(f"Full audio saved as {output_file}")
 

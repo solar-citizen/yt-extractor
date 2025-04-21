@@ -6,6 +6,7 @@ import glob
 import unicodedata
 import sys
 import pytz
+import time
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -151,6 +152,24 @@ def get_existing_video(video_template, url):
 
     # Find matching files
     files = glob.glob(pattern)
+
+    # If no files found with the sanitized title, try a more aggressive search using just parts of the title
+    if not files:
+        print(f"No files found with pattern: {pattern}")
+        print("Trying more flexible search...")
+        # Extract the main part of the title (before special characters)
+        base_title = (
+            safe_title.split("[")[0].strip()
+            if "[" in safe_title
+            else safe_title.split("{")[0].strip()
+        )
+        base_pattern = video_template.replace("%(title)s", base_title + "*")
+        base_pattern = base_pattern.replace("%(ext)s", "*")
+        files = glob.glob(base_pattern)
+
+        if files:
+            print(f"Found file with flexible search: {files[0]}")
+
     if files:
         return files[0]
     return None
@@ -317,13 +336,31 @@ def download_video(url, video_template):
     print("Running command:", " ".join(cmd))
     try:
         subprocess.run(cmd, check=True)
+
+        # Allow some time for file system to update
+        time.sleep(1)
+
+        # Try to find the downloaded file
         downloaded_file = get_existing_video(video_template, url)
         if downloaded_file:
             print(f"Downloaded video as {downloaded_file}")
             return downloaded_file
         else:
-            print("Download completed, but file not found using the template.")
-            return None
+            # Direct search in the extraction folder for recently created files
+            print(
+                "Download completed, but file not found using the template. Searching directory..."
+            )
+            all_files = glob.glob(os.path.join(EXTRACTION_FOLDER_PATH, "*.*"))
+
+            # Sort by creation time, newest first
+            all_files.sort(key=os.path.getctime, reverse=True)
+
+            if all_files:
+                print(f"Using most recently created file: {all_files[0]}")
+                return all_files[0]
+            else:
+                print("No files found in extraction directory.")
+                return None
     except subprocess.CalledProcessError as e:
         print(f"Error downloading video: {e}")
         return None

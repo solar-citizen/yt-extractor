@@ -10,3 +10,6 @@ video.webm
 
 # env variables
 .env
+
+# python cache
+__pycache__/

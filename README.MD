@@ -1,78 +1,80 @@
-# Installation
+# Installation & Setup Guide
 
-## 1. Install Python with adding it to PATH
+yt-extractor supports multiple platforms with dedicated installation paths for Windows and Ubuntu/Linux.
 
-## 2. Install yt-dlp
+---
+
+## Platform-Specific Installation
+
+### Windows Setup
+1. **Install Python:** Ensure Python 3.x is installed and added to your system `PATH`.
+2. **Install FFmpeg via Winget:**
+   Open PowerShell or Command Prompt and run:
+   ```cmd
+   winget install ffmpeg
+   ```
+   *Restart your terminal after installation.*
+3. **Verify FFmpeg:**
+   ```cmd
+   ffmpeg
+   ```
+
+### Ubuntu / Linux Setup
+1. **Install Python & Pip:**
+   ```bash
+   sudo apt update
+   sudo apt install python3 python3-pip python3-dotenv
+   ```
+2. **Install FFmpeg via Apt:**
+   ```bash
+   sudo apt update
+   sudo apt install ffmpeg
+   ```
+3. **Verify FFmpeg:**
+   ```bash
+   ffmpeg
+   ```
+
+---
+
+## Core Dependencies & Python Tools
+
+1. **Install yt-dlp:**
+   ```bash
+   pip install -U yt-dlp
+   ```
+   *Verify installation:* `yt-dlp --version`
+
+2. **Install Required Python Libraries:**
+   ```bash
+   pip install python-dotenv
+   ```
+
+3. **Optional (Code Formatter):**
+   ```bash
+   pip install black
+   ```
+
+---
+
+## Configuration
+
+1. **Environment Variables:**
+   Copy `.example.env` to `.env` and set your extraction folder path:
+   ```env
+   EXTRACTION_FOLDER_PATH="path/to/your/extraction/folder"
+   ```
+
+2. **URLs Configuration:**
+   Add YouTube URLs to `config_data/urls.txt` (one per line).
+
+3. **Timestamps Configuration (Optional):**
+   Fill `config_data/timestamps.txt` with timestamps if you want to split the video into segments. Leave empty for full audio/video extraction.
+
+---
+
+## Running the Program
 
 ```bash
-# run in terminal:
-pip install -U yt-dlp
+python main.py
 ```
-
-### Verify installation
-
-```bash
-# run in terminal:
-yt-dlp --version
-```
-
-## 3. Install FFMPEG
-
-```bash
-# run in terminal:
-
-## Windows:
-winget install ffmpeg
-
-## Ubuntu:
-sudo apt update
-sudo apt install ffmpeg
-
-## MacOS (with Homebrew)
-brew install ffmpeg
-```
-
-Restart terminal
-
-### Verify installation
-
-```bash
-# run in terminal:
-ffmpeg
-```
-
-## 4. Install python tools
-
-```bash
-# run in terminal:
-pip install dotenv
-```
-
-## 5. Set environment variables:
-
-Check .example.env
-
-```bash
-EXTRACTION_FOLDER_PATH="path where you want to export everything"
-```
-
-## 6. Add urls.txt in config_data folder or copy example.urls.txt
-(The file will be created if non-existent.)
-
-Add url(-s) of video(-s) you want to download.
-
-## 7. Add timestamps.txt in config_data folder or copy example.timestamps.txt
-(The file will be created if non-existent.)
-
-Fill it with timestamps, if required.
-Leave empty if you want to extract video in one piece.
-
-## 8. Optional - add code formatter
-
-```bash
-pip install black
-```
-
-Install VSCode extension "Black Formatter"
-
-# Run program

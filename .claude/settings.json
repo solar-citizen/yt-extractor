@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "command": "cat CLAUDE.md"
+      }
+    ]
+  }
+}

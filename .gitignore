@@ -1,7 +1,13 @@
 # config
-/config_data/urls.txt
-/config_data/timestamps.txt
-/config_data/video_metadatas.json
+config_data/urls.txt
+config_data/timestamps.txt
+config_data/video_metadatas.json
+settings.json
+/settings.json
+**/settings.json
+config_data/settings.json
+/config_data/settings.json
+**/config_data/settings.json
 
 # videos
 video.mp4

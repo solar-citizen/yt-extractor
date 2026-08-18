@@ -54,38 +54,40 @@ class YouTubeDownloader:
                 f"Config file not found at {self.config.timestamps_path}. Creating empty file."
             )
             os.makedirs(os.path.dirname(self.config.timestamps_path), exist_ok=True)
+            with open(self.config.timestamps_path, "w", encoding="utf-8"):
+                pass
+
+        # Parse timestamps
+        segments = self.timestamp_service.parse_config_file()
+
+        if segments:
+            # Add segments to video object
+            for segment in segments:
+                video.add_segment(segment)
+
+            print(f"Parsed {len(segments)} segments from config file.")
+
+            # Create dedicated folder for segments
+            safe_title = video.sanitized_title or unknown_title
+            video_segments_folder = os.path.join(base_segments_folder, safe_title)
+            os.makedirs(video_segments_folder, exist_ok=True)
+
+            # Step 2a: Cut video into segments
+            print(f"\n[{cut_title}]\n")
+            self.ffmpeg_service.cut_segments(
+                video_file, segments, video_segments_folder
+            )
         else:
-            # Parse timestamps
-            segments = self.timestamp_service.parse_config_file()
-
-            if segments:
-                # Add segments to video object
-                for segment in segments:
-                    video.add_segment(segment)
-
-                print(f"Parsed {len(segments)} segments from config file.")
-
-                # Create dedicated folder for segments
-                safe_title = video.sanitized_title or unknown_title
-                video_segments_folder = os.path.join(base_segments_folder, safe_title)
-                os.makedirs(video_segments_folder, exist_ok=True)
-
-                # Step 2a: Cut video into segments
-                print(f"\n[{cut_title}]\n")
-                self.ffmpeg_service.cut_segments(
-                    video_file, segments, video_segments_folder
+            # Step 2b: Extract full video
+            print(f"\n{complete_extract_title}\n")
+            if self.config.is_audio_only_extraction:
+                self.ffmpeg_service.extract_full_audio(
+                    video_file,
+                    output_dir=base_segments_folder,
+                    title=video.title or unknown_title,
                 )
             else:
-                # Step 2b: Extract full video
-                print(f"\n{complete_extract_title}\n")
-                if self.config.is_audio_only_extraction:
-                    self.ffmpeg_service.extract_full_audio(
-                        video_file,
-                        output_dir=base_segments_folder,
-                        title=video.title or unknown_title,
-                    )
-                else:
-                    print("Skipping segmentation. Video will remain as downloaded.")
+                print("Skipping segmentation. Video will remain as downloaded.")
 
         # Update metadata
         self.metadata_service.update_metadata(video)

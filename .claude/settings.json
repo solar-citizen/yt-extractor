@@ -2,7 +2,13 @@
   "hooks": {
     "SessionStart": [
       {
-        "command": "cat CLAUDE.md"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat CLAUDE.md"
+          }
+        ]
       }
     ]
   }

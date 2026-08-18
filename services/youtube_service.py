@@ -29,6 +29,8 @@ class YouTubeService:
         """Return the video's title using yt-dlp."""
         cmd = [
             "yt-dlp",
+            "--extractor-args",
+            "youtube:player_client=android,web",
             "--get-title",
             url,
         ]
@@ -52,6 +54,7 @@ class YouTubeService:
 
         # Find matching files
         files = FileUtils.find_file_by_pattern("", pattern)
+        files = [f for f in files if not f.endswith((".part", ".ytdl", ".tmp"))]
 
         # If no files found with the sanitized title, try a more flexible search
         if not files:
@@ -68,6 +71,7 @@ class YouTubeService:
             )
             base_pattern = base_pattern.replace("%(ext)s", "*")
             files = FileUtils.find_file_by_pattern("", base_pattern)
+            files = [f for f in files if not f.endswith((".part", ".ytdl", ".tmp"))]
 
             if files:
                 print(f"Found file with flexible search: {files[0]}")
@@ -119,10 +123,15 @@ class YouTubeService:
         # Download the video
         cmd = [
             "yt-dlp",
+            "--extractor-args",
+            "youtube:player_client=android,web",
             "-o",
             safe_template,
-            url,
         ]
+        if self.config.is_audio_only_extraction:
+            cmd.extend(["-f", "ba/b"])
+        cmd.append(url)
+
         result = SystemUtils.run_subprocess(cmd, show_progress=True)
 
         # Allow some time for file system to update
@@ -141,6 +150,9 @@ class YouTubeService:
             all_files = FileUtils.find_file_by_pattern(
                 self.config.extraction_folder_path, "*.*"
             )
+            all_files = [
+                f for f in all_files if not f.endswith((".part", ".ytdl", ".tmp"))
+            ]
 
             # Sort by creation time, newest first
             all_files.sort(key=os.path.getctime, reverse=True)
@@ -157,6 +169,8 @@ class YouTubeService:
         try:
             cmd = [
                 "yt-dlp",
+                "--extractor-args",
+                "youtube:player_client=android,web",
                 "--skip-download",
                 "--print-json",
                 url,

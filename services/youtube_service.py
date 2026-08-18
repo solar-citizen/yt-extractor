@@ -29,8 +29,6 @@ class YouTubeService:
         """Return the video's title using yt-dlp."""
         cmd = [
             "yt-dlp",
-            "--extractor-args",
-            "youtube:player_client=android,web",
             "--get-title",
             url,
         ]
@@ -123,13 +121,13 @@ class YouTubeService:
         # Download the video
         cmd = [
             "yt-dlp",
-            "--extractor-args",
-            "youtube:player_client=android,web",
             "-o",
             safe_template,
         ]
         if self.config.is_audio_only_extraction:
             cmd.extend(["-f", "ba/b"])
+        else:
+            cmd.extend(["-f", "bestvideo+bestaudio/best"])
         cmd.append(url)
 
         result = SystemUtils.run_subprocess(cmd, show_progress=True)
@@ -169,8 +167,6 @@ class YouTubeService:
         try:
             cmd = [
                 "yt-dlp",
-                "--extractor-args",
-                "youtube:player_client=android,web",
                 "--skip-download",
                 "--print-json",
                 url,

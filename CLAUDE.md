@@ -11,11 +11,15 @@ The codebase follows a strict class-oriented, service-isolated architecture:
 - **`MetadataService` (`services/metadata_service.py`):** Tracks and persists metadata for downloaded videos (`video_metadatas.json`).
 - **`TimestampService` (`services/timestamp_service.py`):** Parses `timestamps.txt` for segment slicing.
 - **`Video` (`models/video.py`):** Data model representing extracted media entities.
+- **`GUI Package` (`gui/`):** Contains `app.py` (CustomTkinter interface with Download, Timestamps, and History tabs) and `workers.py` (`ExtractionWorker` background thread for streaming async extractions).
+- **`Entrypoints`:** `main.py` (CLI batch runner) and `gui_main.py` (CustomTkinter graphical desktop interface).
 
 ## Cross-Platform Setup & Execution
 Refer to **`README.MD`** for detailed step-by-step installation instructions across platforms:
 - **Windows:** PowerShell/cmd commands, winget ffmpeg installation, `.env` configuration.
-- **Ubuntu / Linux:** Apt package manager (`ffmpeg`), python tools setup, and path configuration.
+- **Ubuntu / Linux:** Apt package manager (`ffmpeg`, `python3-tk`), python tools setup, and path configuration.
+- **CLI Execution:** `python main.py`
+- **GUI Execution:** `python gui_main.py` (Windows) / `python3 gui_main.py` (Linux)
 
 ## Coding Conventions
 - **Python 3:** Use explicit type hints, modular service classes, and follow the existing OOP patterns.
